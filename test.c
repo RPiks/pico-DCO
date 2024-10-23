@@ -85,6 +85,7 @@
 #include "piodco/piodco.h"
 #include "build/dco2.pio.h"
 #include "hardware/vreg.h"
+#include "hardware/clocks.h"
 #include "pico/multicore.h"
 #include "pico/stdio/driver.h"
 
