@@ -82,4 +82,9 @@
 
 #define asizeof(a) (sizeof (a) / sizeof ((a)[0]))
 
+#define RUN_TEST_FUNCTION_NAME(x) Spinner ## x ## Test()
+#define RUN_TEST(x) RUN_TEST_FUNCTION_NAME(x)
+#define Q(x) #x
+#define QUOTE(x) Q(x)
+
 #endif

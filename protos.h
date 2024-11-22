@@ -8,6 +8,8 @@
 void RAM (SpinnerMFSKTest)(void);
 void RAM (SpinnerSweepTest)(void);
 void RAM (SpinnerRTTYTest)(void);
+void RAM (SpinnerQRSSTest)(void);
+void RAM (QRSSChirpedHellSymbol)(uint8_t, uint8_t);
 void RAM (SpinnerMilliHertzTest)(void);
 void RAM (SpinnerWide4FSKTest)(void);
 void RAM (SpinnerGPSreferenceTest)(void);
