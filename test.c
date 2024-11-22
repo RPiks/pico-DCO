@@ -40,6 +40,7 @@
 //  SpinnerMilliHertzTest   - A test of millihertz resolution of freq.setting.
 //  SpinnerWide4FSKTest     - Some `wide` 4-FSK test (100 Hz per step, 400 Hz overall).
 //  SpinnerGPSreferenceTest - GPS receiver connection and working test.
+//  SpinnerQRSSTest         - QRSS Chirped Hell and FSK-CW emission.
 //
 //  PLATFORM
 //      Raspberry Pi pico.
@@ -102,6 +103,11 @@
 //#define GEN_FRQ_HZ 32333333L
 #define GEN_FRQ_HZ 29977777L
 
+// If defined, run the selected test, otherwise run console.
+// Tests: MFSK, Sweep, RTTY, MilliHertz, Wide4FSKTest, GPSreference, QRSS
+// #define RUN_TEST_NAME    QRSS
+
+
 PioDco DCO; /* External in order to access in both cores. */
 
 int main() 
@@ -113,6 +119,7 @@ int main()
     sleep_ms(1000);
     printf("Start\n");
 
+#ifndef RUN_TEST_NAME
     HFconsoleContext *phfc = HFconsoleInit(-1, 0);
     HFconsoleSetWrapper(phfc, ConsoleCommandsWrapper);
 
@@ -120,7 +127,6 @@ int main()
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
     multicore_launch_core1(core1_entry);
-
     for(;;)
     {
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
@@ -136,19 +142,16 @@ int main()
         int chr = getchar_timeout_us(100);//getchar();
         printf("%d %c\n", chr, (char)chr);
     }
-  
+#else
+    printf("Running test: " QUOTE(RUN_TEST_NAME));
+
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
     multicore_launch_core1(core1_entry);
 
-    //SpinnerDummyTest();
-    //SpinnerSweepTest();
-    //SpinnerMFSKTest();
-    SpinnerRTTYTest();
-    //SpinnerMilliHertzTest();
-    //SpinnerWide4FSKTest();
-    //SpinnerGPSreferenceTest();
+    RUN_TEST(RUN_TEST_NAME);
+#endif
 }
 
 /* This is the code of dedicated core. 
@@ -231,6 +234,84 @@ void RAM (SpinnerRTTYTest)(void)
 
         PRN32(&rndval);
     }
+}
+
+/* This example creates a typical QRSS beacon transmission,
+   starting with a heart symbol sent in chirped hell with a
+   pixel width/height of 1.5 seconds and 4 Hz respectively,
+   followed by a text (e.g. callsign and locator) in FSK-CW
+   with a dot-length of 6 seconds and 5 Hz frequency shift.
+*/
+
+void RAM (SpinnerQRSSTest)(void)
+{
+    const char *code = " - . ... - ";
+    int32_t df = 5;     // FSK-CW frequency shift in Hz
+
+    int dotlen = 6000;  // dot length in milliseconds
+    int len;            // length of current element
+    uint32_t txfreq = GEN_FRQ_HZ;
+
+    for(;;)
+    {
+        sleep_ms(dotlen);
+
+        //    XX   XX    0
+        //   X  X X  X   1
+        //   X   X   X   2
+        //    X     X    3
+        //     X   X     4
+        //      X X      5
+        //       X       6
+
+        printf("Heart\n");
+        QRSSChirpedHellSymbol(1, 2);
+        QRSSChirpedHellSymbol(0, 3);
+        QRSSChirpedHellSymbol(0, 4);
+        QRSSChirpedHellSymbol(1, 5);
+        QRSSChirpedHellSymbol(2, 6);
+        QRSSChirpedHellSymbol(5, 1);
+        QRSSChirpedHellSymbol(4, 0);
+        QRSSChirpedHellSymbol(3, 0);
+        QRSSChirpedHellSymbol(2, 1);
+
+        for (size_t i = 0; i < strlen(code) ; i++) {
+                txfreq = GEN_FRQ_HZ;
+                if (code[i] == '.') {
+                    len = dotlen;
+                    printf(".");
+                }
+                else if (code[i] == '-') {
+                    printf("-");
+                    len = 3 * dotlen;
+                }
+                else {
+                    printf(" ");
+                    len = 2 * dotlen;
+                    txfreq = GEN_FRQ_HZ - df;
+                }
+
+                gpio_put(PICO_DEFAULT_LED_PIN, 1);
+                PioDCOSetFreq(&DCO, txfreq, 0u);
+                sleep_ms(len);
+                gpio_put(PICO_DEFAULT_LED_PIN, 0);
+
+                gpio_put(PICO_DEFAULT_LED_PIN, 1);
+                PioDCOSetFreq(&DCO, GEN_FRQ_HZ - df, 0u);
+                sleep_ms(dotlen);
+                gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        }
+        printf("\n");
+    }
+}
+
+
+void RAM (QRSSChirpedHellSymbol)(uint8_t a, uint8_t b)
+{
+    PioDCOSetFreq(&DCO, GEN_FRQ_HZ - a * 4, 0u);
+    sleep_ms(1500);
+    PioDCOSetFreq(&DCO, GEN_FRQ_HZ - b * 4, 0u);
+    sleep_ms(1500);
 }
 
 void RAM (SpinnerMilliHertzTest)(void)
